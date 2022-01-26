@@ -1,0 +1,42 @@
+version: '3.7'
+
+services:
+  web:
+    build: .
+    image: python:3.9.5-slim-buster
+    command: python main.py run -h 0.0.0.0
+    restart: on-failure:5
+    volumes:
+      - ./services/web/:/code/
+    ports:
+      - 5000:5000
+    entrypoint: ./deploy/entrypoint.sh
+    env_file:
+      - ./.env.dev
+    depends_on:
+      - db
+
+  worker:
+    build: .
+    image: python:3.9.5-slim-buster
+    command: ["./deploy/wait-for-db.sh", 'python', 'tasks_manager.py']
+    restart: on-failure:5
+    env_file:
+      - ./.env.dev
+    depends_on:
+      - db
+      - web
+
+  db:
+    image: postgres:13-alpine
+    container_name: postgres_db
+    restart: on-failure:5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=worker_user
+      - POSTGRES_PASSWORD=worker_pass
+      - POSTGRES_DB=worker1
+
+volumes:
+  postgres_data:
